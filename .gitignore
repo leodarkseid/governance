@@ -1,0 +1,12 @@
+node_modules/
+build/
+scripts/
+flatten/
+cache/
+artifacts/
+contracts/artifacts/
+.idea
+.yarnrc
+yarn.lock
+package-lock.json
+.DS_Store
