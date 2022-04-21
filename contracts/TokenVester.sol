@@ -3,8 +3,6 @@
 pragma solidity >=0.8.0;
 
 import "@openzeppelin/contracts@4.5.0/access/Ownable.sol";
-import "@openzeppelin/contracts@4.5.0/utils/math/Math.sol";
-import "@openzeppelin/contracts@4.5.0/utils/math/SafeMath.sol";
 import "@openzeppelin/contracts@4.5.0/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts@4.5.0/security/ReentrancyGuard.sol";
 
@@ -12,22 +10,21 @@ import "@openzeppelin/contracts@4.5.0/security/ReentrancyGuard.sol";
  * Contract to control the release of ELK.
  */
 contract TokenVester is Ownable, ReentrancyGuard {
-    using SafeMath for uint256;
     using SafeERC20 for IERC20;
 
-    address public elk;
+    IERC20 immutable public elk;
     address public recipient;
 
     // Amount to distribute at each interval
     uint256 public vestingAmount;
 
     // Interval to distribute
-    uint256 public vestingCliff;
+    uint256 immutable public vestingCliff;
 
     // Number of distribution intervals before the distribution amount halves
-    uint256 public halvingPeriod;
+    uint256 immutable public halvingPeriod;
 
-    // Countdown till the nest halving
+    // Countdown till the next halving
     uint256 public nextSlash;
 
     // Whether vesting is currently live
@@ -37,24 +34,24 @@ contract TokenVester is Ownable, ReentrancyGuard {
     uint256 public lastUpdate;
 
     // Amount of ELK required to start distributing
-    uint256 public startingBalance;
+    uint256 immutable public startingBalance;
 
     // ELK distribution plan:
-    // 2*6750 = 13500 ELK per day (year 2), 6.75k for farms and 6.75k for ILP.
+    // 2*6750 = 13500 ELK per day, 6.75k for farms and 6.75k for ILP.
     // Vesting period will be 24 hours: 86400 seconds.
     // Halving will occur every 365 days, i.e., 365 distributions.
 
     constructor(
         address elk_,
         uint256 vestingAmount_,  // 13500000000000000000000
-        uint256 halvingPeriod_,  // 31536000
+        uint256 halvingPeriod_,  // 365
         uint256 vestingCliff_,   // 86400
         uint256 startingBalance_ // 10000000000000000000000000
     ) {
         require(vestingAmount_ <= startingBalance_, 'TokenVester::constructor: Vesting amount too high');
         require(halvingPeriod_ >= 1, 'TokenVester::constructor: Invalid halving period');
 
-        elk = elk_;
+        elk = IERC20(elk_);
 
         vestingAmount = vestingAmount_;
         halvingPeriod = halvingPeriod_;
@@ -62,7 +59,7 @@ contract TokenVester is Ownable, ReentrancyGuard {
         startingBalance = startingBalance_;
 
         lastUpdate = 0;
-        nextSlash = halvingPeriod;
+        nextSlash = halvingPeriod - 1;
     }
 
     /**
@@ -72,11 +69,11 @@ contract TokenVester is Ownable, ReentrancyGuard {
      */
     function startVesting() external onlyOwner {
         require(!vestingEnabled, 'TokenVester::startVesting: vesting already started');
-        require(IERC20(elk).balanceOf(address(this)) >= startingBalance, 'TokenVester::startVesting: incorrect ELK supply');
+        require(elk.balanceOf(address(this)) >= startingBalance, 'TokenVester::startVesting: incorrect ELK supply');
         require(recipient != address(0), 'TokenVester::startVesting: recipient not set');
 
         vestingEnabled = true;
-        lastUpdate = block.timestamp - (block.timestamp % (24*3600)) + 12*3600; // align timestamp to 12pm GMT the day before
+        lastUpdate = block.timestamp - (block.timestamp % (24*3600)) + 12*3600; // align timestamp to 12pm GMT
 
         emit VestingEnabled();
     }
@@ -84,15 +81,16 @@ contract TokenVester is Ownable, ReentrancyGuard {
     /**
      * Sets the recipient of the vested distributions.
      */
-    function setRecipient(address recipient_) public onlyOwner {
+    function setRecipient(address recipient_) external onlyOwner {
+        require(!vestingEnabled, 'TokenVester::setRecipient: vesting already started');
         recipient = recipient_;
+        emit RecipientSet(recipient_);
     }
 
     /**
-     * Vest the next ELK allocation. Requires vestingCliff seconds in between calls. ELK will
-     * be distributed to the recipient.
+     * Vest the next ELK allocation. ELK will be distributed to the recipient.
      */
-    function claim() public nonReentrant returns (uint256) {
+    function claim() external nonReentrant returns (uint256) {
         require(vestingEnabled, 'TokenVester::claim: vesting not enabled');
         require(msg.sender == recipient, 'TokenVester::claim: only recipient can claim');
 
@@ -102,9 +100,9 @@ contract TokenVester is Ownable, ReentrancyGuard {
     /**
      * Vest all remaining ELK allocation. ELK will be distributed to the recipient.
      */
-    function claimAll() public nonReentrant returns (uint256) {
-        require(vestingEnabled, 'TokenVester::claim: vesting not enabled');
-        require(msg.sender == recipient, 'TokenVester::claim: only recipient can claim');
+    function claimAll() external nonReentrant returns (uint256) {
+        require(vestingEnabled, 'TokenVester::claimAll: vesting not enabled');
+        require(msg.sender == recipient, 'TokenVester::claimAll: only recipient can claim');
 
         uint256 numClaims = 0;
         if (lastUpdate < block.timestamp) {
@@ -122,7 +120,7 @@ contract TokenVester is Ownable, ReentrancyGuard {
      * Private function implementing the vesting process.
      */
     function _claim() private returns (uint256) {
-        require(block.timestamp >= lastUpdate + vestingCliff, 'TokenVester::claim: not time yet');
+        require(block.timestamp >= lastUpdate + vestingCliff, 'TokenVester::_claim: not time yet');
 
         // If we've finished a halving period, reduce the amount
         if (nextSlash == 0) {
@@ -137,12 +135,13 @@ contract TokenVester is Ownable, ReentrancyGuard {
 
         // Distribute the tokens
         emit TokensVested(vestingAmount, recipient);
-        IERC20(elk).safeTransfer(recipient, vestingAmount);
+        elk.safeTransfer(recipient, vestingAmount);
 
         return vestingAmount;
     }
 
     /* ========== EVENTS ========== */
+    event RecipientSet(address recipient);
     event VestingEnabled();
     event TokensVested(uint256 amount, address recipient);
     
