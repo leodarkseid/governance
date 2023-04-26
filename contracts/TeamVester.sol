@@ -16,7 +16,7 @@ contract TeamVester is Ownable, ReentrancyGuard {
     IERC20 immutable public elk;
     address immutable public recipient;
 
-    // Whether vesting is currently live, N.B this pauses only the claim function, doesn't affect vaultTime
+    // Whether vesting is currently live, N.B this pauses only the claim function, doesn't affect vaultTime or the vesting schedule
     bool public isPaused;
 
     uint256 public amountWithdrawn;
