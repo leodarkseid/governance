@@ -20,7 +20,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  */
 
 /// @dev This is the main contract for the Team Vesting Contract
-contract TeamVester is Ownable, ReentrancyGuard{
+contract TeamVester is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
 
