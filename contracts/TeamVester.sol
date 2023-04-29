@@ -181,13 +181,12 @@ contract TeamVester is Ownable, ReentrancyGuard {
         _updateVaultTime();
     }
 
-    function _updateVaultTime() internal onlyOwner whenNotPaused nonReentrant{
+    function _updateVaultTime() internal whenNotPaused nonReentrant{
         if(block.timestamp >= vaultTime + 31557600 ){
             amountWithdrawn = 0;
             amountAvailable = maxAmountClaimable;
             vaultTime += 31557600;
             emit vaulTimeUpdated();
-
         }
     }
 /// @notice This function can be used to get the current Year of the vault
