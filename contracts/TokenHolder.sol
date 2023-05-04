@@ -84,7 +84,6 @@ contract TokenHolder is Ownable, ReentrancyGuard {
         uint256 bal = elk.balanceOf(address(this));
         uint256 trueBalance = bal;
         
-
         if(trueBalance < amountAvailable){
             return 0;
         }
