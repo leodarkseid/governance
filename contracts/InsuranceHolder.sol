@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.0;
 
-/// @title A Team Vesting Contract for ELK tokens
+/// @title A Time Locked Insurance Vault Contract for ELK tokens
 /// @author Elk Labs
 /// @notice This contract is used to distribute ELK tokens to recepients and it ensures the more tokens than what is available cannot be claimed
 /// @dev All Basic functions work, there are no known bugs at this time
@@ -18,7 +18,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
  */
 
 /// @dev This is the main contract for the Team Vesting Contract
-contract TeamVester is Ownable, ReentrancyGuard {
+contract InsuranceHolder is Ownable, ReentrancyGuard {
     using SafeERC20 for IERC20;
 
 
@@ -52,9 +52,6 @@ contract TeamVester is Ownable, ReentrancyGuard {
 /// @notice amountAvailable is the internal amount of ELK tokens that is available for withdrawal within a Year
     uint256 internal amountAvailable;
 
-/// @notice burntTokens is the internal amount of ELK tokens that has been burnt from the contract
-    uint256 internal burntTokens;
-
 
 /// @dev The constructor sets the Elk Address and Max amount claimable in a year
 /// @param elk_ is the address of the ELK token
@@ -81,36 +78,11 @@ contract TeamVester is Ownable, ReentrancyGuard {
         require(!isPaused, 'TeamVester::whenNotPaused: contract is paused');
         _;
     }
-    
-/// @dev This function can be used to burn Tokens from the contract
-/// @param _amount is the amount of ELK tokens to be burnt
-    function burnElk(uint256 _amount) external whenNotPaused onlyOwner nonReentrant{
-        _burnElk(_amount);
-    }
 
-/// @dev This internal function burns the Token and is called by burnElk
-/// @param _amount is the amount of ELK tokens to be burnt
-/// @notice it emits the TokensBurned event if successfully called
-    function _burnElk(uint256 _amount) private whenNotPaused onlyOwner{
-        uint256 bal = elk.balanceOf(address(this));
-        uint256 trueBalance = bal - burntTokens;
-        require(_amount > 0, "TeamVester::_burnElk: amount must be greater than 0");
-        require(_amount <= trueBalance, "TeamVester::_burnElk: amount must be less than or equal to balance");
-
-
-        burntTokens += _amount;
-        emit TokensBurned(_amount);
-
-    }
-/// @notice This function can be used to get amount of Burnt Tokens
-    function getBurntTokens() public view returns (uint256) {
-        return burntTokens;
-    }
-
-/// @dev This function can be used to get the amount of ELK tokens available for withdrawal and it takes into account the burnt tokens
+/// @dev This function can be used to get the amount of ELK tokens available for withdrawal
     function getAmountAvailable() public view returns (uint256) {
         uint256 bal = elk.balanceOf(address(this));
-        uint256 trueBalance = bal - burntTokens;
+        uint256 trueBalance = bal;
         
 
         if(trueBalance < amountAvailable){
@@ -141,7 +113,7 @@ contract TeamVester is Ownable, ReentrancyGuard {
 /// @notice it emits the TokensClaimed event if successfully called
     function _claim(uint256 _claimAmount) private returns (uint256) {
         uint256 bal = elk.balanceOf(address(this));
-        uint256 trueBalance = bal - burntTokens;
+        uint256 trueBalance = bal;
         assert(amountWithdrawn <= totalAmountEverWithdrawn);
         require(trueBalance >= amountAvailable && _claimAmount <= trueBalance, "TeamVester::claim: Contract is out of Available Tokens");
         require(_claimAmount <= amountAvailable,"TeamVester::claim: claim amount must be less than amount available");
@@ -195,10 +167,10 @@ contract TeamVester is Ownable, ReentrancyGuard {
 
         return _claim(_claimAmount);
     }
-/// @notice This function can be used to get the current true balance of the contract, it takes into account the burnt tokens
+/// @notice This function can be used to get the current true balance of the contract
     function contractBalance() external view returns(uint256){
         uint256 bal = elk.balanceOf(address(this));
-        uint256 trueBalance = bal - burntTokens;
+        uint256 trueBalance = bal;
         return trueBalance;
     }
 
@@ -220,6 +192,5 @@ contract TeamVester is Ownable, ReentrancyGuard {
     /* ========== EVENTS ========== */
     event RecipientSet(address recipient);
     event TokensClaimed(uint256 amount, address recipient);
-    event vaulTimeUpdated();
-    event TokensBurned(uint256 amount);    
+    event vaulTimeUpdated();  
 }
