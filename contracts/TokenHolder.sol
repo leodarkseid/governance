@@ -2,7 +2,7 @@
 
 pragma solidity >=0.8.0;
 
-/// @title A Team Vesting Contract for ELK tokens
+/// @title A Time Locked Token Vault Contract for ELK tokens
 /// @author Elk Labs
 /// @notice This contract is used to distribute ELK tokens to recepients and it ensures the more tokens than what is available cannot be claimed
 /// @dev All Basic functions work, there are no known bugs at this time
